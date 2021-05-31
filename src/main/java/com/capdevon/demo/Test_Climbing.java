@@ -177,10 +177,15 @@ public class Test_Climbing extends SimpleApplication {
         player.addControl(bcc);
         physics.getPhysicsSpace().add(bcc);
 
+        // Setup root motion physics control
         RigidBodyControl rbc = new RigidBodyControl(bcc.getRigidBody().getCollisionShape());
-        rbc.setKinematicSpatial(true);
+        // Kinematic mode must be enabled so character is not influenced by physics
         rbc.setKinematic(true);
+        // Apply spatial transform to the collision shape
+        rbc.setKinematicSpatial(true);
+        // Adding it to the same node that root motion is applied to.
         model.addControl(rbc);
+        // Disable it. Will be enabled when playing root motion animation.
         rbc.setEnabled(false);
         rbc.setPhysicsSpace(physics.getPhysicsSpace());
 
