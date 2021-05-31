@@ -12,7 +12,6 @@ import com.jme3.anim.tween.Tween;
 import com.jme3.anim.tween.Tweens;
 import com.jme3.anim.tween.action.Action;
 import com.jme3.anim.tween.action.BaseAction;
-import com.jme3.anim.tween.action.ClipAction;
 import com.jme3.app.Application;
 import com.jme3.app.FlyCamAppState;
 import com.jme3.app.SimpleApplication;
@@ -30,12 +29,7 @@ import com.jme3.input.controls.KeyTrigger;
 import com.jme3.input.controls.Trigger;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
-import com.jme3.math.ColorRGBA;
-import com.jme3.math.FastMath;
-import com.jme3.math.Quaternion;
-import com.jme3.math.Ray;
-import com.jme3.math.Transform;
-import com.jme3.math.Vector3f;
+import com.jme3.math.*;
 import com.jme3.post.FilterPostProcessor;
 import com.jme3.renderer.Camera;
 import com.jme3.renderer.RenderManager;
@@ -47,8 +41,9 @@ import com.jme3.scene.Spatial;
 import com.jme3.shadow.DirectionalLightShadowFilter;
 import com.jme3.system.AppSettings;
 import com.jme3.util.SkyFactory;
-
 import jme3utilities.MyAnimation;
+
+import static com.jme3.anim.tween.Tweens.*;
 
 /**
  * @author capdevon
@@ -329,7 +324,20 @@ public class Test_Climbing extends SimpleApplication {
                 TransformTrack climbingRootMotionTrack = new TransformTrack(model, hipsTrack.getTimes(), translations, null, null);
 
                 animComposer.addAction(AnimDefs.Climbing, new BaseAction(
-                        Tweens.parallel(animComposer.getAction(AnimDefs.Climbing), new RootMotion(climbingRootMotionTrack, true))));
+                        sequence(
+                                // Activate root motion physics
+                                callMethod(bcc, "setEnabled", false),
+                                callMethod(rbc, "setEnabled", true),
+                                parallel(
+                                        animComposer.getAction(AnimDefs.Climbing),
+                                        new RootMotion(climbingRootMotionTrack, true)
+                                ),
+                                // Deactivate root motion physics
+                                callMethod(rbc, "setEnabled", false),
+                                callMethod(bcc, "setEnabled", true),
+                                // Make sure to remove our self now
+                                callMethod(animComposer, "removeCurrentAction")
+                        )));
             }
         }
 
@@ -369,10 +377,6 @@ public class Test_Climbing extends SimpleApplication {
                     isClimbingMode = false;
                     startClimb = false;
                     //spatial.setLocalTranslation(goalPosition);
-                    //bcc.setEnabled(true);
-
-                    rbc.setEnabled(false);
-                    bcc.setEnabled(true);
 
                     bcc.warp(goalPosition);
                 }
@@ -406,10 +410,8 @@ public class Test_Climbing extends SimpleApplication {
 
                         goalPosition.set(hitInfo.point.add(0, 0.01f, 0));
 
-                        //bcc.setViewDirection(hitInfo.normal.negate()); // align with wall
-                        //bcc.setWalkDirection(Vector3f.ZERO); // stop walking
-                        bcc.setEnabled(false);
-                        rbc.setEnabled(true);
+                        bcc.setViewDirection(hitInfo.normal.negate()); // align with wall
+                        bcc.setWalkDirection(Vector3f.ZERO); // stop walking
 
                         //helper.setTranslation(hitInfo.normal.negate().multLocal(hDistAwayFromLedge).addLocal(spatial.getWorldTranslation()));
                         //helper.getTranslation().setY(hitInfo.point.y - vDistAwayFromLedge);
@@ -424,7 +426,6 @@ public class Test_Climbing extends SimpleApplication {
                 }
             } else {
                 isClimbingMode = false;
-                //bcc.setEnabled(true);
             }
         }
 
