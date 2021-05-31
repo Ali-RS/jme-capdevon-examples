@@ -1,6 +1,5 @@
 package com.capdevon.demo;
 
-import com.capdevon.anim.AnimUtils;
 import com.capdevon.animation.MixamoBodyBones;
 import com.capdevon.control.AdapterControl;
 import com.capdevon.debug.DebugShape;
@@ -8,13 +7,12 @@ import com.capdevon.engine.FVector;
 import com.capdevon.physx.Physics;
 import com.capdevon.physx.PhysxDebugAppState;
 import com.capdevon.physx.RaycastHit;
-import com.jme3.anim.AnimComposer;
-import com.jme3.anim.Joint;
-import com.jme3.anim.SkinningControl;
-import com.jme3.anim.TransformTrack;
+import com.jme3.anim.*;
+import com.jme3.anim.tween.Tween;
 import com.jme3.anim.tween.Tweens;
 import com.jme3.anim.tween.action.Action;
 import com.jme3.anim.tween.action.BaseAction;
+import com.jme3.anim.tween.action.ClipAction;
 import com.jme3.app.Application;
 import com.jme3.app.FlyCamAppState;
 import com.jme3.app.SimpleApplication;
@@ -61,20 +59,20 @@ public class Test_Climbing extends SimpleApplication {
      * @param args
      */
     public static void main(String[] args) {
-    	
+
         Test_Climbing app = new Test_Climbing();
         AppSettings settings = new AppSettings(true);
-        settings.setUseJoysticks(true);
+        settings.setUseJoysticks(false);
         settings.setResolution(1280, 720);
         settings.setFrequency(60);
-        settings.setFrameRate(200);
-        settings.setSamples(4);
+        //settings.setFrameRate(200);
+        //settings.setSamples(4);
         settings.setBitsPerPixel(32);
-        settings.setVSync(false);
-        
+        settings.setVSync(true);
+
         app.setSettings(settings);
-        app.setShowSettings(false);
-        app.setPauseOnLostFocus(false);
+        app.setShowSettings(true);
+        //app.setPauseOnLostFocus(false);
         app.start();
     }
 
@@ -95,18 +93,18 @@ public class Test_Climbing extends SimpleApplication {
         setupPlayer();
         setupLights();
     }
-    
+
     private void initPhysics() {
         physics = new BulletAppState();
         //physics.setThreadingType(ThreadingType.SEQUENTIAL);
         stateManager.attach(physics);
         physics.setDebugAxisLength(1);
         physics.setDebugEnabled(true);
-        
+
         // press 0 to toggle physics debug
         stateManager.attach(new PhysxDebugAppState());
     }
-    
+
     /**
      * a sky as background
      */
@@ -119,28 +117,28 @@ public class Test_Climbing extends SimpleApplication {
     private void setupScene() {
         scene = (Node) assetManager.loadModel(SCENE_MODEL);
         rootNode.attachChild(scene);
-        
+
         CollisionShape shape = CollisionShapeFactory.createMeshShape(scene);
         RigidBodyControl rgb = new RigidBodyControl(shape, 0f);
         scene.addControl(rgb);
         physics.getPhysicsSpace().add(rgb);
     }
-    
+
     private void setupLights() {
         AmbientLight ambient = new AmbientLight();
         ambient.setColor(ColorRGBA.White.clone());
         rootNode.addLight(ambient);
         ambient.setName("ambient");
-        
+
         DirectionalLight sun = new DirectionalLight();
         sun.setDirection(new Vector3f(-0.5f, -0.5f, 0.5f).normalizeLocal());
         sun.setColor(ColorRGBA.White.clone());
         rootNode.addLight(sun);
         sun.setName("sun");
-        
+
         FilterPostProcessor fpp = new FilterPostProcessor(assetManager);
         viewPort.addProcessor(fpp);
-        
+
         DirectionalLightShadowFilter shadowFilter = new DirectionalLightShadowFilter(assetManager, 2_048, 3);
         shadowFilter.setLight(sun);
         shadowFilter.setShadowIntensity(0.4f);
@@ -149,47 +147,49 @@ public class Test_Climbing extends SimpleApplication {
     }
 
     private void setupPlayer() {
-    	DebugShape debugShape = new DebugShape(assetManager);
-    	
-    	//
+        DebugShape debugShape = new DebugShape(assetManager);
+
+        //
         player = new Node("MainCharacter");
         player.attachChild(debugShape.getAxisCoordinate());
         player.setLocalTranslation(0, 1, -1);
         rootNode.attachChild(player);
-        
+
         // vertical
         Node ledgeRayV = new Node("LedgeRayV");
         ledgeRayV.attachChild(debugShape.createWireBox(0.1f, ColorRGBA.Red));
         player.attachChild(ledgeRayV);
         ledgeRayV.setLocalTranslation(FVector.forward(player).multLocal(0.5f).addLocal(0, 3, 0));
-        
+
         // horizontal
         Node ledgeRayH = new Node("LedgeRayH");
         ledgeRayH.attachChild(debugShape.createWireBox(0.1f, ColorRGBA.Blue));
         player.attachChild(ledgeRayH);
         ledgeRayH.setLocalTranslation(FVector.forward(player).multLocal(0.2f).addLocal(0, 1.5f, 0));
-        
+
         // setup model
         Spatial model = assetManager.loadModel(CHARACTER_MODEL);
         model.setName("Character.Model");
         player.attachChild(model);
-        
-//        SkinningControl skeleton = AnimUtils.getSkeletonControl(model);
-//        Joint hips = skeleton.getArmature().getJoint("Armature_mixamorig:" + MixamoBodyBones.Hips);
-//        Vector3f negate = hips.getModelTransform().getTranslation().negate();
-//        model.setLocalTranslation(negate);
-        
+
         // setup physics character
         BetterCharacterControl bcc = new BetterCharacterControl(.4f, 1.8f, 40f);
         player.addControl(bcc);
         physics.getPhysicsSpace().add(bcc);
-        
+
+        RigidBodyControl rbc = new RigidBodyControl(bcc.getRigidBody().getCollisionShape());
+        rbc.setKinematicSpatial(true);
+        rbc.setKinematic(true);
+        model.addControl(rbc);
+        rbc.setEnabled(false);
+        rbc.setPhysicsSpace(physics.getPhysicsSpace());
+
         // setup third person camera
         setupChaseCamera();
-        
+
         Geometry rootBoneRef = debugShape.createWireSphere(0.4f, ColorRGBA.White);
         rootNode.attachChild(rootBoneRef);
-        
+
         // setup player control
         PlayerControl pControl = new PlayerControl(this);
         pControl.ledgeRayH = ledgeRayH;
@@ -198,12 +198,12 @@ public class Test_Climbing extends SimpleApplication {
         pControl.rootBoneRef = rootBoneRef;
         player.addControl(pControl);
     }
-    
+
     private void setupChaseCamera() {
         // disable the default 1st-person flyCam!
         stateManager.detach(stateManager.getState(FlyCamAppState.class));
         flyCam.setEnabled(false);
-        
+
         ChaseCamera chaseCam = new ChaseCamera(cam, player, inputManager);
         chaseCam.setUpVector(Vector3f.UNIT_Y.clone());
         chaseCam.setLookAtOffset(new Vector3f(0f, 1f, 0f));
@@ -245,13 +245,14 @@ public class Test_Climbing extends SimpleApplication {
         public Node ledgeRayH;
         public Spatial model;
         public Geometry rootBoneRef;
-        
+
         Camera camera;
         DebugTools debugTools;
         InputManager inputManager;
         AnimComposer animComposer;
         BetterCharacterControl bcc;
-        
+        RigidBodyControl rbc;
+
         private final Vector3f walkDirection = new Vector3f(0, 0, 0);
         private final Vector3f viewDirection = new Vector3f(0, 0, 1);
         private final Vector3f camDir = new Vector3f();
@@ -264,12 +265,12 @@ public class Test_Climbing extends SimpleApplication {
         boolean _MoveForward, _MoveBackward, _MoveLeft, _MoveRight;
         boolean isClimbingMode, startClimb;
         boolean isClimbingAnimDone = true;
-        TransformTrack tt;
+        TransformTrack hipsTrack;
         Transform rootMotion = new Transform();
-        
+
         /**
          * Constructor.
-         * 
+         *
          * @param app
          */
         public PlayerControl(Application app) {
@@ -277,12 +278,13 @@ public class Test_Climbing extends SimpleApplication {
             this.debugTools = new DebugTools(app.getAssetManager());
             registerWithInput(app.getInputManager());
         }
-        
+
         @Override
         public void setSpatial(Spatial sp) {
             super.setSpatial(sp);
             if (spatial != null) {
                 this.bcc = getComponent(BetterCharacterControl.class);
+                this.rbc = getComponentInChild(RigidBodyControl.class);
                 this.animComposer = getComponentInChild(AnimComposer.class);
 
                 // setup animations
@@ -292,13 +294,40 @@ public class Test_Climbing extends SimpleApplication {
                 Action action = animComposer.getAction(animName);
                 action = new BaseAction(Tweens.sequence(action, Tweens.callMethod(this, "onClimbingDone")));
                 animComposer.addAction(animName, action);
-                
-                SkinningControl skeleton = getComponentInChild(SkinningControl.class); 
+
+                SkinningControl skeleton = getComponentInChild(SkinningControl.class);
+                skeleton.getArmature().applyBindPose();
                 Joint hips = skeleton.getArmature().getJoint("Armature_mixamorig:" + MixamoBodyBones.Hips);
-                tt = MyAnimation.findJointTrack(animComposer.getAnimClip(AnimDefs.Climbing), hips.getId());
+                Vector3f hipsOrigin = hips.getModelTransform().getTranslation().clone();
+                // Because model is scaled by 0.01 we must scale joint location by 0.01 as well!
+                hipsOrigin.multLocal(0.01f);
+                AnimClip climbing = animComposer.getAnimClip(AnimDefs.Climbing);
+                hipsTrack = MyAnimation.findJointTrack(climbing, hips.getId());
+
+                AnimTrack[] tracks = climbing.getTracks();
+                for (int i = 0; i < tracks.length; i++) {
+                    if(tracks[i] == hipsTrack) {
+                        // Convert it to an in-place animation by removing translations data
+                        tracks[i] = new TransformTrack(hipsTrack.getTarget(), hipsTrack.getTimes(), null, hipsTrack.getRotations(), hipsTrack.getScales());
+                    }
+                }
+
+                Vector3f[] translations = hipsTrack.getTranslations();
+                for (Vector3f translation : translations) {
+                    // Because model is scaled by 0.01 we must scale animation data by 0.01 as well!
+                    translation.multLocal(0.01f);
+                    // Because hip origin(0.0, 0.99, 0.002) and model origin(0, 0, 0) is not coincide,
+                    // we must translate it back to model origin
+                    translation.subtractLocal(hipsOrigin);
+                }
+                // Create a root motion track for player node
+                TransformTrack climbingRootMotionTrack = new TransformTrack(model, hipsTrack.getTimes(), translations, null, null);
+
+                animComposer.addAction(AnimDefs.Climbing, new BaseAction(
+                        Tweens.parallel(animComposer.getAction(AnimDefs.Climbing), new RootMotion(climbingRootMotionTrack, true))));
             }
         }
-                
+
         @Override
         public void onAction(String name, boolean isPressed, float tpf) {
             if (name.equals(InputMapping.MOVE_LEFT)) {
@@ -313,7 +342,7 @@ public class Test_Climbing extends SimpleApplication {
                 checkLedgeGrab();
             }
         }
-        
+
         @Override
         protected void controlUpdate(float tpf) {
             if (!isClimbingMode) {
@@ -325,17 +354,21 @@ public class Test_Climbing extends SimpleApplication {
                 if (startClimb && !isClimbingAnimDone) {
                     // align with wall
                     //spatial.getWorldRotation().slerp(helper.getRotation(), tpf * 5);
-                	
-                	tt.getDataAtTime(animComposer.getTime(), rootMotion);
-                	Vector3f vec = animComposer.getSpatial().localToWorld(rootMotion.getTranslation(), null);
-                	rootBoneRef.setLocalTranslation(vec);
-                	rootBoneRef.setLocalRotation(rootMotion.getRotation());
+
+//                    hipsTrack.getDataAtTime(animComposer.getTime(), rootMotion);
+//                    Vector3f vec = animComposer.getSpatial().localToWorld(rootMotion.getTranslation(), null);
+//                    rootBoneRef.setLocalTranslation(vec);
+//                    rootBoneRef.setLocalRotation(rootMotion.getRotation());
 
                 } else if (isClimbingAnimDone) {
                     isClimbingMode = false;
                     startClimb = false;
                     //spatial.setLocalTranslation(goalPosition);
                     //bcc.setEnabled(true);
+
+                    rbc.setEnabled(false);
+                    bcc.setEnabled(true);
+
                     bcc.warp(goalPosition);
                 }
             }
@@ -368,9 +401,10 @@ public class Test_Climbing extends SimpleApplication {
 
                         goalPosition.set(hitInfo.point.add(0, 0.01f, 0));
 
-                        bcc.setViewDirection(hitInfo.normal.negate()); // align with wall
-                        bcc.setWalkDirection(Vector3f.ZERO); // stop walking
-                        //bcc.setEnabled(false);
+                        //bcc.setViewDirection(hitInfo.normal.negate()); // align with wall
+                        //bcc.setWalkDirection(Vector3f.ZERO); // stop walking
+                        bcc.setEnabled(false);
+                        rbc.setEnabled(true);
 
                         //helper.setTranslation(hitInfo.normal.negate().multLocal(hDistAwayFromLedge).addLocal(spatial.getWorldTranslation()));
                         //helper.getTranslation().setY(hitInfo.point.y - vDistAwayFromLedge);
@@ -393,7 +427,7 @@ public class Test_Climbing extends SimpleApplication {
             isClimbingAnimDone = true;
             System.out.println("climbingDone");
         }
-        
+
         private void updateMovement(float tpf) {
 
             camera.getDirection(camDir).setY(0);
@@ -422,17 +456,17 @@ public class Test_Climbing extends SimpleApplication {
                 spatial.getWorldRotation().mult(Vector3f.UNIT_Z, viewDirection);
                 bcc.setViewDirection(viewDirection);
             }
-            
+
             bcc.setWalkDirection(walkDirection.multLocal(m_MoveSpeed));
             setAnimation(isMoving ? AnimDefs.Running : AnimDefs.Idle);
         }
-        
+
         private void setAnimation(String animName) {
             if (animComposer.getCurrentAction() != animComposer.getAction(animName)) {
                 animComposer.setCurrentAction(animName);
             }
         }
-        
+
         private void stopMove() {
             _MoveForward   = false;
             _MoveBackward  = false;
@@ -446,13 +480,13 @@ public class Test_Climbing extends SimpleApplication {
                 debugTools.show(rm, vp);
             }
         }
-        
+
         /**
          * Custom Keybinding: Map named actions to inputs.
          */
         private void registerWithInput(InputManager inputManager) {
             this.inputManager = inputManager;
-            
+
             addMapping(InputMapping.MOVE_FORWARD, new KeyTrigger(KeyInput.KEY_W));
             addMapping(InputMapping.MOVE_BACKWARD, new KeyTrigger(KeyInput.KEY_S));
             addMapping(InputMapping.MOVE_LEFT, new KeyTrigger(KeyInput.KEY_A));
@@ -466,7 +500,7 @@ public class Test_Climbing extends SimpleApplication {
         }
 
     }
-    
+
     private interface InputMapping {
 
         final String MOVE_LEFT = "MOVE_LEFT";
@@ -474,6 +508,57 @@ public class Test_Climbing extends SimpleApplication {
         final String MOVE_FORWARD = "MOVE_FORWARD";
         final String MOVE_BACKWARD = "MOVE_BACKWARD";
         final String ACTION = "ACTION";
+    }
+
+    private static class RootMotion implements Tween {
+        private final TransformTrack track;
+        private final Spatial spatial;
+        private final Transform transform = new Transform();
+
+        private boolean resetLocation;
+        private Vector3f startLoc;
+
+        /**
+         *
+         * @param track
+         * @param resetLocation if true, then at the end of the animation it will reset the spatial location to where it
+         *                      was at the beginning.
+         */
+        public RootMotion(TransformTrack track, boolean resetLocation) {
+            this.track = track;
+            if(!(track.getTarget() instanceof Spatial)) {
+                throw new IllegalArgumentException("Target of root motion track must be a spatial.");
+            }
+
+            this.spatial = (Spatial) track.getTarget();
+            this.resetLocation = resetLocation;
+        }
+
+        @Override
+        public double getLength() {
+            return track.getLength();
+        }
+
+        @Override
+        public boolean interpolate(double t) {
+            if (t > getLength()) {
+                if( resetLocation) {
+                    spatial.setLocalTranslation(startLoc);
+                }
+
+                startLoc = null;
+                return false;
+            }
+
+            if (startLoc == null) {
+                startLoc = spatial.getLocalTranslation().clone();
+            }
+
+            track.getDataAtTime(t, transform);
+            Vector3f newLocation = startLoc.add(transform.getTranslation());
+            spatial.setLocalTranslation(newLocation);
+            return true;
+        }
     }
 
 }
