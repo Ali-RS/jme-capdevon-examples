@@ -320,7 +320,8 @@ public class Test_Climbing extends SimpleApplication {
                     // we must translate it back to model origin
                     translation.subtractLocal(hipsOrigin);
                 }
-                // Create a root motion track for player node
+                // Create a root motion track for "model" node.
+                // Note, applying it to "player" node will cause a strange side effect. Probably because BCC is also controlling it!
                 TransformTrack climbingRootMotionTrack = new TransformTrack(model, hipsTrack.getTimes(), translations, null, null);
 
                 animComposer.addAction(AnimDefs.Climbing, new BaseAction(
