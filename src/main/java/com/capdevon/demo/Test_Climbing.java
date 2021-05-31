@@ -47,6 +47,7 @@ import static com.jme3.anim.tween.Tweens.*;
 
 /**
  * @author capdevon
+ * @author Ali-RS
  */
 public class Test_Climbing extends SimpleApplication {
 
